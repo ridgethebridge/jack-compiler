@@ -1,0 +1,75 @@
+
+class Ball {
+	field int x, y, radius, xSpeed, ySpeed;
+
+	constructor Ball new (int xStart, int yStart, int rad) 
+	{
+		let x = xStart;
+		let y = yStart;
+		let radius = rad;
+		let ySpeed = 6;
+		let xSpeed = 6;
+		return this;
+	}
+
+	method void drawBall()
+	{
+		do Screen.drawCircle(x,y,radius);
+		return;
+	}
+
+	method void reverseX()
+	{
+		let xSpeed = -xSpeed;
+		return;
+	}
+
+	method void reverseY()
+	{
+		let ySpeed = -ySpeed;
+		return;
+	}
+	method void moveBall()
+	{		
+		let x = x +xSpeed;
+		let y = y + ySpeed;
+		return;
+	}
+	method boolean collides(int x1, int y1, int x2, int y2) 
+	{
+		if(withinDistance(x1,x2) & withinHeight(y1,y2))
+		{
+			do reverseY();
+			return true;
+		}
+		return false;
+	}
+	method boolean hitsTops(int y1, int y2)
+	{
+		 if(((y-radius+ySpeed) <y1) | ((y+radius+ySpeed) > y2))
+		 {
+		 	do reverseY();
+			return true;
+		}
+		return false;
+	}
+	method boolean hitsSides(int x1, int x2)
+	{
+		 if(((x-radius+xSpeed) <x1) | ((x+radius+xSpeed) > x2))
+		 {
+		 	do reverseX();
+			return true;
+		}
+		return false;
+	}
+	method boolean withinDistance(int x1,int x2) {return (((x+radius+xSpeed) > x1) &((x-radius-xSpeed) < x2));}
+//	method boolean withinHeight(int y1,int y2) {return ((Math.abs(y-y1+ySpeed) < radius) | (Math.abs(y-y2+ySpeed) < radius));}
+	method boolean withinHeight(int y1,int y2) {return (((Math.abs(y-radius+ySpeed) < y2) & (Math.abs(y+radius-ySpeed)>y2)) | ((Math.abs(y+radius+ySpeed) > y1) & (Math.abs(y-radius-ySpeed)<y2)));}
+
+	method void setX(int xPos)
+	{
+		let x = xPos;
+		return;
+	}
+}
+

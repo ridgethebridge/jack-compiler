@@ -1,0 +1,44 @@
+class Player {
+	field int x1,y1,x2,y2,speed;
+
+	constructor Player new(int xPos, int yPos,int w,int h, int sp)
+	{
+		let x1 = xPos;
+		let y1 = yPos;
+		let x2 =w;
+		let y2  =h;
+		let speed = sp;
+		return this;
+	}
+
+	method void drawPlayer()
+	{
+		do Screen.drawRectangle(x1,y1,x2,y2);
+		return;
+	}
+
+	method void moveRight(int distance)
+	{
+		if(((x2 + distance) < 512))
+		{
+			let x1 =x1 +distance;
+			let x2 =x2 +distance;
+		}
+		return;
+	}
+	method void moveLeft(int distance)
+	{
+		if(((x1 - distance) > 0))
+		{
+			let x1 =x1 -distance;
+			let x2 =x2 -distance;
+		}
+		return;
+	}
+
+	method int getX1() { return x1;}
+	method int getX2() { return x2;}
+	method int getY1() { return y1;}
+	method int getY2() { return y2;}
+	method int getSpeed() { return speed;}
+}

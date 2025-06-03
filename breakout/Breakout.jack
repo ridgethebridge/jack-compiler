@@ -1,0 +1,151 @@
+
+class Breakout {
+	field Ball ball;
+	field Player player;
+	field Array blocks;
+	field int rows, columns, blockWidth, blockHeight,initialBlockX,initialBlockY,spacing;
+
+	constructor Breakout new(int rowCount, int columnCount)
+	{
+		let rows = rowCount;
+		let columns = columnCount;
+		let blockWidth = 40;
+		let blockHeight = 10;
+		let initialBlockX = 150;
+		let initialBlockY = 30;
+		let spacing = 5;
+		let player = Player.new(206,220,306,235,7);
+		let ball = Ball.new(256,210,10);
+		let blocks = Array.new(rowCount*columnCount);
+		do initBlocks();
+		do ball.drawBall();
+		do player.drawPlayer();
+		let blocks[0] = true;
+		do drawBlocks();
+		return this;
+	}
+		
+	method void startGame()
+	{
+		// objects
+		var char key;
+		var boolean started;
+		var boolean collided;
+		var char key;
+		// initialization
+		let key = 0;
+		let started = false;
+		while(true)
+		{
+			let collided = false;
+			if(Keyboard.keyPressed() = 32){let started = true;}
+			if(started)
+			{
+			let key = Keyboard.keyPressed();
+			if(key = 68) { do player.moveRight(player.getSpeed());}
+			if(key = 65) { do player.moveLeft(player.getSpeed());}
+			if(ball.collides(player.getX1(),player.getY1(),player.getX2(),player.getY2())) {let collided = true;}
+			if(ball.hitsTops(1,255)){let collided = true;}
+			if(ball.hitsSides(1,511)){let collided = true;}
+			if(collidesWithBlocks()){let collided = true;}
+			if(~collided){do ball.moveBall();}
+			do Screen.clearScreen();
+			do player.drawPlayer();
+			do ball.drawBall();
+			}
+			else 
+			{
+				do moveBoth();
+				do Screen.clearScreen();
+				do player.drawPlayer();
+				do ball.drawBall();
+			}
+			do drawBlocks();
+		}
+
+		return;
+	}
+
+	method void moveBoth() 
+	{
+		var char c;
+		let c = Keyboard.keyPressed();
+		if( c = 68){do player.moveRight(player.getSpeed()); do ball.setX(player.getX1() + 50);}
+		if(c = 65) { do player.moveLeft(player.getSpeed());do ball.setX(player.getX1()+50);}
+		return;
+	}
+
+	method void initBlocks()
+	{
+		var int i;
+		let i = 0;
+		while( i< (rows*columns))
+		{
+			let blocks[i] = true;
+			let i = i+1;
+		}
+		return;
+	}
+
+	method void drawBlocks()
+	{
+		var int i;
+		var int c;
+		var int x;
+		var int y;
+		let x = initialBlockX;
+		let y = initialBlockY;
+		let i = 0;
+		let c = 0;
+		while(i < (columns*rows))
+		{
+			if(c = columns)
+			{
+				let x = initialBlockX;
+				let y = y + blockHeight+spacing;
+				let c = 0;
+			}
+			if(blocks[i]) {do Screen.drawRectangle(x,y,x+blockWidth,y+blockHeight);}
+			let x = x+blockWidth+spacing;
+			let c = c + 1;
+			let i = i+1;
+		}
+		return;
+	}
+
+	method boolean collidesWithBlocks()
+	{
+		var boolean collided;
+		var int i;
+		var int c;
+		var int x;
+		var int y;
+		var int column;
+		let collided = false;
+		let i = 0;
+		let c = 0;
+		let x = initialBlockX;
+		let y = initialBlockY;
+		while(i < (columns*rows))
+		{
+			if(c = columns)
+			{
+				let x = initialBlockX;
+				let y = y + blockHeight+spacing;
+				let c = 0;
+			}
+			if(blocks[i])
+			{
+				if(ball.collides(x,y,x+blockWidth,y+blockHeight))
+				{
+					let blocks[i] = false;
+					let collided = true;
+				}
+			}
+			let x = x+blockWidth+spacing;
+			let c = c + 1;
+			let i = i+1;
+		}
+		return collided;
+	}
+}
