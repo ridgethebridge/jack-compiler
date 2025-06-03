@@ -21,11 +21,13 @@ class Token:
         self.name = None
         self.token_class = None
         self.token_type = None
-
-
     def capture_token(self,name):
         self.name = name
-        if name == "field":
+        if name == None:
+            self.name = "EOF"
+            self.token_class = Token_Class.EOF
+            self.token_type = Token_Type.EOF
+        elif name == "field":
             self.token_class = Token_Class.KEYWORD
             self.token_type = Token_Type.FIELD
         elif name == "true":
@@ -158,7 +160,7 @@ class Token:
             self.token_type = Token_Type.STRING_CONSTANT
             self.name = name[1:len(name)-1] # fix
         else :
-            self.token_class = None
+            self.token_class = Token_Class.INVALID
             self.token_type = Token_Type.INVALID
 
 class Token_Class(Enum):
@@ -168,6 +170,8 @@ class Token_Class(Enum):
     STRING_CONSTANT = 3
     SYMBOL = 4
     OPERATOR = 5 # maybe get rid of
+    INVALID = 6
+    EOF = 7
 
 class Token_Type(Enum):
     FIELD = 0
@@ -214,3 +218,4 @@ class Token_Type(Enum):
     STRING_CONSTANT = 41
     VAR = 42
     EQUALS = 43
+    EOF = 44

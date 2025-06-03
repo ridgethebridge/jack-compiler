@@ -1,9 +1,0 @@
-
-class test {
-	static int b;
-	constructor test new() {
-	let b = 90 / 10;
-	let b = "lolipop";
-	return this;
-	}
-}

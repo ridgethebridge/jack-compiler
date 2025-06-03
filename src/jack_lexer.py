@@ -1,11 +1,8 @@
 
 #TODO list
-# make some error functions for certain types of errors like missing ;
-#maybe do what tsoding does and have a expect_next_token
 #try to make making the xml file more efficient, maybe allocate larger buffer initially
 # so new string isn't made every time a token is lexed
-#maybe make a lex_statements function to add statements token to tree
-# if and while are similar in structure, maybe refactor to not repeat code
+#maybe have an error log, a string which errors are appended to and when done lexing print it all out
 
 #important things
 #overall add some slight changes to the grammar to make it fit my style
@@ -38,40 +35,45 @@ class Jack_Lexer:
         self.cursor = 0
         self.tree = ""
 
-#fix so it works
     def skip_blanks(self):
         while self.has_next():
             c = self.code[self.cursor]
+            #whitespace handling
             while c == " " or c == "\n" or c == "\t":
                 self.cursor +=1
+                self.line_pos+=1
+                if c == "\n":
+                    self.cur_line+=1
+                    self.line_pos = 0
+                if not self.has_next():
+                    return
                 c = self.code[self.cursor]
+            # comments
             if c == "/":
                 if self.has_next():
                     if self.code[self.cursor+1] == '/':
                         while self.has_next() and self.code[self.cursor] != '\n':
                             self.cursor+=1
+                            self.line_pos+=1
                         self.cursor+=1 # skips over new line
-                        if not self.has_next():
-                            break
+                        self.cur_line+=1
+                        self.line_pos = 0
                     elif self.code[self.cursor+1] =='*':
                         while len(self.code) - self.cursor >=2 and self.code[self.cursor:self.cursor+2] != '*/':
-                            self.cursor+=1
-                            if not (len(self.code) - self.cursor >=2): # didnt read */ which i error
-                                print("major error /* with no */ is eroor!!!")
-                                break
+                            self.cursor+=2
                         self.cursor=self.cursor+2 #skips over */
                     else:
-                        #in this case it is a fivision symbol
-                        break
+                        return
             else:
-                break
+                return
 
     def lex_next_token(self):
         self.skip_blanks()
         name = None
+        #EOF condition
         if not self.has_next():
-            print("lexer error: end of line reached when token expected")
-            exit()
+            self.cur_token.capture_token(None)
+            return
         start = self.cursor
         self.cursor +=1
         if is_alphanumeric(self.code[start]):
@@ -81,19 +83,19 @@ class Jack_Lexer:
             if name[0] >= "0" and name[0] <="9":
                 for c in name:
                     if not(c >="0" and c<="9"):
-                        print(f"lexer error: invalid token {name} must be number or name")
+                        print(f"lexer error: invalid token {name} identifers cannot begin with numbers")
                         exit()
         elif self.code[start] == "\"":
             while self.has_next() and self.code[self.cursor] != "\"":
                 if self.code[self.cursor] == "\n":
-                    print("lexer error: \" is expected to end string")
-                    exit()
-                elif not self.has_next():
-                    print("lexer error: \" is expected to end string")
+                    print("lexer error: \" is expected to end string reached a newline instead")
                     exit()
                 self.cursor+=1
             if self.has_next(): #this is to catch quote if there is one
                 self.cursor+=1
+            else:
+                print("lexer error: \" is expected, reached EOF instead")
+                exit()
         self.cur_token.capture_token(self.code[start:self.cursor])
         s = token_class_to_str(self.cur_token.token_class)
         self.tree += f"<{s}> {self.cur_token.name} </{s}>\n"
@@ -118,6 +120,7 @@ class Jack_Lexer:
         self.tree+="</classVarDec>\n"
 
     
+    #original grammar doesnt allow for alternating var decs and subroutine defs
     def lex_class_def(self): 
         self.tree+="<class>\n"
         self.lex_expected_token(Token_Type.CLASS)
@@ -129,12 +132,9 @@ class Jack_Lexer:
                 self.lex_class_var_dec()
             elif self.cur_token.token_type == Token_Type.FUNCTION or self.cur_token.token_type == Token_Type.METHOD or self.cur_token.token_type == Token_Type.CONSTRUCTOR:
                 self.lex_subroutine_dec()
-            elif self.cur_token.token_type == Token_Type.RIGHT_CURLY:
-                self.lex_next_token()
-                break
             else:
-                print("error invalid class definition!!!!")
-                exit()
+                break
+        self.lex_expected_token(Token_Type.RIGHT_CURLY)
         self.tree+="</class>\n"
         
     def peek_ahead(self,k):
@@ -174,16 +174,7 @@ class Jack_Lexer:
                 self.lex_var_dec()
             else:
                 break
-        self.tree+="<statements>\n"
-        while True:
-            self.lex_statement()
-            self.peek_ahead(1)
-            if self.cur_token.token_type == Token_Type.RIGHT_CURLY:
-                break
-            elif self.cur_token.token_type == Token_Type.INVALID:
-                print("} is expected g not " + token.name)
-                exit()
-        self.tree+="</statements>\n"
+        self.lex_multiple_statements()
         self.lex_expected_token(Token_Type.RIGHT_CURLY) #reads right curly
         self.tree+="</subroutineBody>\n"
 
@@ -224,6 +215,15 @@ class Jack_Lexer:
             exit()
 
     #set of statement functions
+    def lex_multiple_statements(self):
+        self.tree+="<statements>\n"
+        while True:
+            self.peek_ahead(1)
+            if self.cur_token.token_type == Token_Type.RIGHT_CURLY:
+                break
+            self.lex_statement()
+        self.tree+="</statements>\n"
+
     def lex_statement(self):
         self.peek_ahead(1)
         if self.cur_token.token_type == Token_Type.LET:
@@ -264,13 +264,7 @@ class Jack_Lexer:
         self.lex_expression()
         self.lex_expected_token(Token_Type.RIGHT_PAREN)
         self.lex_expected_token(Token_Type.LEFT_CURLY)
-        self.tree+="<statements>\n"
-        while True:
-            self.peek_ahead(1)
-            if self.cur_token.token_type == Token_Type.RIGHT_CURLY:
-                break
-            self.lex_statement()
-        self.tree+="</statements>\n"
+        self.lex_multiple_statements()
         self.lex_expected_token(Token_Type.RIGHT_CURLY)
         self.tree+="</whileStatement>\n"
         
@@ -282,25 +276,13 @@ class Jack_Lexer:
         self.lex_expression()
         self.lex_expected_token(Token_Type.RIGHT_PAREN)
         self.lex_expected_token(Token_Type.LEFT_CURLY)
-        self.tree+="<statements>\n"
-        while True:
-            self.peek_ahead(1)
-            if self.cur_token.token_type == Token_Type.RIGHT_CURLY:
-                break
-            self.lex_statement()
-        self.tree+="</statements>\n"
+        self.lex_multiple_statements()
         self.lex_expected_token(Token_Type.RIGHT_CURLY)
         self.peek_ahead(1)
         if self.cur_token.token_type == Token_Type.ELSE:
             self.lex_expected_token(Token_Type.ELSE)
             self.lex_expected_token(Token_Type.LEFT_CURLY)
-            self.tree+="<statements>\n"
-            while True:
-                self.peek_ahead(1)
-                if self.cur_token.token_type == Token_Type.RIGHT_CURLY:
-                    break
-                self.lex_statement()
-            self.tree+="</statements>\n"
+            self.lex_multiple_statements()
             self.lex_expected_token(Token_Type.RIGHT_CURLY)
         self.tree+="</ifStatement>\n"
 
@@ -415,7 +397,6 @@ class Jack_Lexer:
         self.lex_next_token()
         if self.cur_token.token_type != tt:
             print(f"lexer error: expected {tt}, got {self.cur_token.name} instead")
-            print(self.tree)
             exit()
     
 def is_alphanumeric(c):
