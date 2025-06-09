@@ -22,9 +22,6 @@ class Jack_Lexer:
         self.error_log = ""
         self.cur_file = file_name
 
-    def switch_file(self,file_name):
-        self = Jack_Lexer(file_name)
-
     def skip_blanks(self):
         while self.has_next():
             c = self.code[self.cursor]
@@ -33,7 +30,6 @@ class Jack_Lexer:
                 self.cursor +=1
                 self.line_pos+=1
                 if c == "\n":
-                    print(self.cur_line)
                     self.cur_line+=1
                     self.line_pos = 1
                 if not self.has_next():
@@ -67,15 +63,11 @@ class Jack_Lexer:
             return
         start = self.cursor
         self.cursor +=1
+        self.line_pos+=1
         if is_alphanumeric(self.code[start]):
             while self.has_next() and is_alphanumeric(self.code[self.cursor]):
                 self.cursor +=1
-            name = self.code[start:self.cursor]
-            if name[0] >= "0" and name[0] <="9":
-                for c in name:
-                    if not(c >="0" and c<="9"):
-                        self.error_log+=f"syntax error: invalid token {name} identifers cannot begin with numbers\n"
-                        self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+                self.line_pos+=1
         elif self.code[start] == "\"":
             while self.has_next() and self.code[self.cursor] != "\"":
                 if self.code[self.cursor] == "\n":
@@ -83,8 +75,10 @@ class Jack_Lexer:
                     self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
                     break
                 self.cursor+=1
+                self.line_pos+=1
             if self.has_next(): #this is to catch quote if there is one
                 self.cursor+=1
+                self.line_pos+=1
             else:
                 self.error_log+=f"syntax error: \" is missing at end of string {self.code[start:self.cursor]}, reached EOF instead\n"
                 self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
@@ -139,12 +133,16 @@ class Jack_Lexer:
     def peek_ahead(self,k):
         saved_tree_state = self.tree
         start = self.cursor
+        saved_ln = self.cur_line
+        saved_lp = self.line_pos
         i = 0
         while i < k:
             self.lex_next_token()
             i+=1
         self.cursor = start
         self.tree = saved_tree_state
+        self.cur_line = saved_ln
+        self.line_pos = saved_lp
         
     def lex_subroutine_dec(self): 
         self.tree+="<subroutineDec>\n"
@@ -292,6 +290,7 @@ class Jack_Lexer:
         self.lex_identifier()
         self.peek_ahead(1)
         if self.cur_token.token_type == Token_Type.LEFT_BRACKET:
+            self.lex_expected_token(Token_Type.LEFT_BRACKET)
             self.lex_expression() 
             self.lex_expected_token(Token_Type.RIGHT_BRACKET)
             self.lex_expected_token(Token_Type.EQUALS)
@@ -398,5 +397,3 @@ class Jack_Lexer:
             self.error_log+=f"syntax error:  expected {tt} not {self.cur_token.name}\n"
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
     
-def is_alphanumeric(c):
-    return (c >="0" and c<="9") or (c >="A" and c <="Z") or (c >="a" and c <="z") or c =="_"

@@ -1,7 +1,8 @@
 
-#TODO
-#fix how tokens are named
 from enum import Enum
+
+def is_alphanumeric(c):
+    return (c >="0" and c<="9") or (c >="A" and c <="Z") or (c >="a" and c <="z") or c =="_"
 
 def token_class_to_str(tc):
     if tc == Token_Class.IDENTIFIER:
@@ -14,6 +15,21 @@ def token_class_to_str(tc):
         return "integerConstant"
     elif tc == Token_Class.STRING_CONSTANT:
         return "stringConstant"
+
+def is_number(token):
+    for c in token:
+        if not (c >="0" and c <="9"):
+            return False
+    return True
+
+def is_identifier(token):
+    if token[0] >="A" and token[0] <="Z" or token[0]>="a" and token[0]<="z" or token[0]=="_":
+        for c in token[1:]:
+            if not is_alphanumeric(c):
+                return False
+        return True
+    return False
+    
 
 class Token:
     # so fucking bad
@@ -144,15 +160,15 @@ class Token:
             self.token_type = Token_Type.GREATER_THAN
             self.name = "&gt;"
         elif name == "=":
-            self.token_class = Token_Class.OPERATOR
+            self.token_class = Token_Class.SYMBOL
             self.token_type = Token_Type.EQUALS
         elif name == "~":
             self.token_class = Token_Class.SYMBOL
             self.token_type = Token_Type.TILDE
-        elif name[0] >= "A" and name[0] <="z": # should invalid on bad identifer
+        elif is_identifier(name):
             self.token_class = Token_Class.IDENTIFIER
             self.token_type = Token_Type.IDENTIFIER
-        elif name[0] >="0" and name[0] <="9": # should invalid on bad int constant
+        elif is_number(name):
             self.token_class = Token_Class.INT_CONSTANT
             self.token_type = Token_Type.INT_CONSTANT
         elif name[0] == "\"" and name[len(name)-1] == "\"": #fix definition
