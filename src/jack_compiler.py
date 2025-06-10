@@ -11,11 +11,14 @@ def main():
     file = argv[1]
     if os.path.isdir(file):
         file = os.listdir(file)
+    else:
+        file = [file]
     for f in file:
         if ".jack" in f:
             lexer = Jack_Lexer(f)
             lexer.lex_class_def()
             if lexer.error_log != "":
+                print(lexer.tree)
                 print(lexer.error_log)
                 exit()
             lexer.dump_xml_to_file(f.replace(".jack",".xml"))

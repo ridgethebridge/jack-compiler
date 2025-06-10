@@ -43,12 +43,13 @@ class Jack_Lexer:
                             self.cursor+=1
                             self.line_pos+=1
                     elif self.code[self.cursor+1] =='*':
+                        self.cursor+=2 #skips over intial *
                         while len(self.code) - self.cursor >=2 and self.code[self.cursor:self.cursor+2] != '*/':
                             if "\n" in self.code[self.cursor:self.cursor+2]:
                                 self.cur_line+=1
                                 self.line_pos=1
-                            self.cursor+=2
-                        self.cursor=self.cursor+2 #skips over */
+                            self.cursor+=1
+                        self.cursor+=2 # skips over */
                     else:
                         return
             else:
@@ -330,6 +331,7 @@ class Jack_Lexer:
         elif self.cur_token.token_type == Token_Type.THIS: 
             self.lex_next_token()
         elif self.cur_token.token_type == Token_Type.LEFT_PAREN:
+            self.lex_expected_token(Token_Type.LEFT_PAREN)
             self.lex_expression()
             self.lex_expected_token(Token_Type.RIGHT_PAREN)
         elif self.cur_token.token_type == Token_Type.MINUS or self.cur_token.token_type == Token_Type.TILDE:

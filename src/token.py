@@ -146,6 +146,7 @@ class Token:
             self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.FORWARD_SLASH
         elif name == "&":
+            self.name = "&amp;"
             self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.AMPERSAND
         elif name == "|":
@@ -160,7 +161,7 @@ class Token:
             self.token_type = Token_Type.GREATER_THAN
             self.name = "&gt;"
         elif name == "=":
-            self.token_class = Token_Class.SYMBOL
+            self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.EQUALS
         elif name == "~":
             self.token_class = Token_Class.SYMBOL
