@@ -18,7 +18,6 @@ def main():
             lexer = Jack_Lexer(f)
             lexer.lex_class_def()
             if lexer.error_log != "":
-                print(lexer.tree)
                 print(lexer.error_log)
                 exit()
             lexer.dump_xml_to_file(f.replace(".jack",".xml"))

@@ -136,6 +136,7 @@ class Jack_Lexer:
         start = self.cursor
         saved_ln = self.cur_line
         saved_lp = self.line_pos
+        saved_error  = self.error_log
         i = 0
         while i < k:
             self.lex_next_token()
@@ -144,6 +145,7 @@ class Jack_Lexer:
         self.tree = saved_tree_state
         self.cur_line = saved_ln
         self.line_pos = saved_lp
+        self.error_log = saved_error
         
     def lex_subroutine_dec(self): 
         self.tree+="<subroutineDec>\n"
@@ -341,7 +343,7 @@ class Jack_Lexer:
             self.peek_ahead(2)
             if self.cur_token.token_type == Token_Type.LEFT_BRACKET:
                 self.lex_identifier() #reads name
-                self.lex_next_token() # reads left bracket
+                self.lex_expected_token(Token_Type.LEFT_BRACKET)
                 self.lex_expression()
                 self.lex_expected_token(Token_Type.RIGHT_BRACKET)
             elif self.cur_token.token_type == Token_Type.LEFT_PAREN or self.cur_token.token_type == Token_Type.DOT:
@@ -349,8 +351,9 @@ class Jack_Lexer:
             else:
                 self.lex_identifier()
         else:
-            self.error_log+=f"syntax error: invalid term for expression, type or expression expected, not {self.cur_token.name}\n"
+            self.error_log+=f"syntax error: invalid term for expression, identifier, constant or expression expected, not {self.cur_token.name}\n"
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+            self.lex_next_token() # @unsure
         self.tree+="</term>\n"
 
     def lex_subroutine_call(self):
@@ -393,9 +396,13 @@ class Jack_Lexer:
             print("could not open file for writing")
             exit()
 
+    #@unsure
     def lex_expected_token(self,tt):
-        self.lex_next_token()
+        #        self.lex_next_token()
+        self.peek_ahead(1)
         if self.cur_token.token_type != tt:
             self.error_log+=f"syntax error:  expected {tt} not {self.cur_token.name}\n"
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+            return 
+        self.lex_next_token()
     
