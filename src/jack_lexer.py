@@ -1,10 +1,40 @@
 
 #TODO list
-#try to make making the xml file more efficient, maybe allocate larger buffer initially
-# so new string isn't made every time a token is lexed
-
+#use 3 symbol tables, one for global, one for local, and one for function names
 from token import *
+from symbol_table import *
 class Jack_Lexer:
+
+    #new function maybe remove
+    def new_identifier_info(self,i_type,kind,defined):
+        self.tree+="<identifer-block>\n"
+        self.lex_identifier()
+        table = None
+        if kind == FIELD or kind == FIELD:
+            table = self.g_table
+        else:
+            table = self.l_table
+        self.tree+=f"<type> {i_type} </type>\n"
+        self.tree+=f"<kind> {kind} </kind>\n"
+        self.tree+=f"<defined> {defined} </defined>\n"
+        self.tree+="</identifer-block>\n"
+        table.define(self.cur_token.name,i_type,kind)
+
+    def used_identifier_info(self):
+        self.tree+="<identifer-block>\n"
+        self.lex_identifier()
+        name = self.cur_token.name
+        table = None
+        if name in self.l_table:
+            table = self.l_table.table
+        elif name in self.g_table:
+            table = self.g_table.table
+        else:
+            table = {name: ("undefined","undefined",-1)}
+        self.tree+=f"<type> {table[name][0]} </type>\n"
+        self.tree+=f"<kind> {table[name][1]} </kind>\n"
+        self.tree+=f"<defined> {False} </defined>\n"
+        self.tree+="</identifer-block>\n"
 
     def __init__(self, file_name):
         try:
@@ -21,6 +51,9 @@ class Jack_Lexer:
         self.cur_token = Token()
         self.error_log = ""
         self.cur_file = file_name
+        self.l_table = Table()
+        self.g_table = Table()
+        self.name = file_name
 
     def skip_blanks(self):
         while self.has_next():
@@ -88,15 +121,17 @@ class Jack_Lexer:
         s = token_class_to_str(self.cur_token.token_class)
         self.tree += f"<{s}> {self.cur_token.name} </{s}>\n"
 
-    def lex_class_var_dec(self): # fix so it parses comma separated declarations
+    def lex_class_var_dec(self):
         self.tree+="<classVarDec>\n"
         self.lex_next_token() 
+        kind = self.cur_token.name
         if self.cur_token.token_type != Token_Type.FIELD and self.cur_token.token_type != Token_Type.STATIC:
             self.error_log+=f"syntax error: field or static expected, not {self.cur_token.name}\n" 
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
         self.lex_type()
+        i_type = self.cur_token.name
         while True:
-            self.lex_identifier()
+            self.new_identifier_info(i_type,kind,True)
             self.lex_next_token()
             if self.cur_token.token_type == Token_Type.SEMICOLON:
                break
@@ -107,12 +142,10 @@ class Jack_Lexer:
                 self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
         self.tree+="</classVarDec>\n"
 
-    
-    #original grammar doesnt allow for alternating var decs and subroutine defs
     def lex_class_def(self): 
         self.tree+="<class>\n"
         self.lex_expected_token(Token_Type.CLASS)
-        self.lex_identifier()
+        self.new_identifier_info(self.cur_token.name,CLASS,True)
         self.lex_expected_token(Token_Type.LEFT_CURLY)
         #for var decs
         while True:
@@ -148,6 +181,7 @@ class Jack_Lexer:
         self.error_log = saved_error
         
     def lex_subroutine_dec(self): 
+        self.l_table.start_routine()
         self.tree+="<subroutineDec>\n"
         self.lex_next_token()
         if not(self.cur_token.token_type == Token_Type.FUNCTION or self.cur_token.token_type == Token_Type.METHOD or self.cur_token.token_type == Token_Type.CONSTRUCTOR):
@@ -158,7 +192,7 @@ class Jack_Lexer:
              self.lex_next_token()
         else:
             self.lex_type() 
-        self.lex_identifier()
+        self.new_identifier_info(SUB,SUB,True)
         self.lex_expected_token(Token_Type.LEFT_PAREN)
         self.lex_parameter_list() 
         self.lex_expected_token(Token_Type.RIGHT_PAREN)
@@ -175,7 +209,7 @@ class Jack_Lexer:
             else:
                 break
         self.lex_multiple_statements()
-        self.lex_expected_token(Token_Type.RIGHT_CURLY) #reads right curly
+        self.lex_expected_token(Token_Type.RIGHT_CURLY) 
         self.tree+="</subroutineBody>\n"
 
     def lex_parameter_list(self): 
@@ -183,13 +217,13 @@ class Jack_Lexer:
         self.peek_ahead(1)
         if self.cur_token.token_type != Token_Type.RIGHT_PAREN:
             self.lex_type()
-            self.lex_identifier()
+            self.new_identifier_info(self.cur_token.name,ARG,True)
             self.peek_ahead(1)
             while self.cur_token.token_type == Token_Type.COMMA:
-                self.lex_next_token() # reads comma
+                self.lex_expected_token(Token_Type.COMMA) 
                 self.lex_type()
-                self.lex_identifier()
-                self.peek_ahead(1) #checks for comma again
+                self.new_identifier_info(self.cur_token.name,ARG,True)
+                self.peek_ahead(1) 
         self.tree+="</parameterList>\n"
 
     def lex_var_dec(self): 
@@ -197,7 +231,7 @@ class Jack_Lexer:
         self.lex_expected_token(Token_Type.VAR)
         self.lex_type()
         while True:
-            self.lex_identifier()
+            self.new_identifier_info(self.cur_token.name,LOCAL,True)
             self.lex_next_token()
             if self.cur_token.token_type == Token_Type.COMMA:
                 pass
@@ -269,7 +303,6 @@ class Jack_Lexer:
         self.lex_expected_token(Token_Type.RIGHT_CURLY)
         self.tree+="</whileStatement>\n"
         
-        # add else statements
     def lex_if_statement(self):
         self.tree+="<ifStatement>\n"
         self.lex_expected_token(Token_Type.IF)
@@ -287,10 +320,11 @@ class Jack_Lexer:
             self.lex_expected_token(Token_Type.RIGHT_CURLY)
         self.tree+="</ifStatement>\n"
 
+    #@unsure
     def lex_let_statement(self):
         self.tree+="<letStatement>\n"
         self.lex_expected_token(Token_Type.LET)
-        self.lex_identifier()
+        self.used_identifier_info()
         self.peek_ahead(1)
         if self.cur_token.token_type == Token_Type.LEFT_BRACKET:
             self.lex_expected_token(Token_Type.LEFT_BRACKET)
@@ -342,14 +376,14 @@ class Jack_Lexer:
         elif self.cur_token.token_type == Token_Type.IDENTIFIER:
             self.peek_ahead(2)
             if self.cur_token.token_type == Token_Type.LEFT_BRACKET:
-                self.lex_identifier() #reads name
+                self.used_identifier_info()
                 self.lex_expected_token(Token_Type.LEFT_BRACKET)
                 self.lex_expression()
                 self.lex_expected_token(Token_Type.RIGHT_BRACKET)
             elif self.cur_token.token_type == Token_Type.LEFT_PAREN or self.cur_token.token_type == Token_Type.DOT:
                 self.lex_subroutine_call() 
             else:
-                self.lex_identifier()
+                self.used_identifier_info()
         else:
             self.error_log+=f"syntax error: invalid term for expression, identifier, constant or expression expected, not {self.cur_token.name}\n"
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
@@ -357,10 +391,10 @@ class Jack_Lexer:
         self.tree+="</term>\n"
 
     def lex_subroutine_call(self):
-        self.lex_identifier()
+        self.used_identifier_info()
         self.lex_next_token()
         if self.cur_token.token_type == Token_Type.DOT:
-            self.lex_identifier()
+            self.used_identifier_info()
             self.lex_expected_token(Token_Type.LEFT_PAREN)
         elif self.cur_token.token_type != Token_Type.LEFT_PAREN:
             self.error_log+=f"syntax error: ( is expected for subroutine call not {self.cur_token.name}\n"
@@ -378,7 +412,6 @@ class Jack_Lexer:
                 self.lex_next_token()
         self.tree+="</expressionList>\n"
 
-
     def lex_identifier(self):
         self.lex_next_token()
         if self.cur_token.token_type != Token_Type.IDENTIFIER:
@@ -388,6 +421,7 @@ class Jack_Lexer:
     def has_next(self):
         return len(self.code) - self.cursor > 0
 
+    '''
     def dump_xml_to_file(self,file_name):
         try:
             with open(file_name,"w") as file:
@@ -395,10 +429,10 @@ class Jack_Lexer:
         except:
             print("could not open file for writing")
             exit()
+    '''
 
     #@unsure
     def lex_expected_token(self,tt):
-        #        self.lex_next_token()
         self.peek_ahead(1)
         if self.cur_token.token_type != tt:
             self.error_log+=f"syntax error:  expected {tt} not {self.cur_token.name}\n"
