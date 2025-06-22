@@ -115,7 +115,6 @@ class Jack_Lexer:
         self.cur_token.capture_token(self.code[start:self.cursor])
         
         s = token_class_to_str(self.cur_token.token_class)
-        self.tree += f"<{s}> {self.cur_token.name} </{s}>\n"
 
         
     def peek_ahead(self,k):
