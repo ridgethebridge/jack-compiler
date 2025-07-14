@@ -1,4 +1,5 @@
 
+#TODO fix naming of tokens
 from enum import Enum
 
 def is_alphanumeric(c):
@@ -33,11 +34,7 @@ def is_identifier(token):
 
 class Token:
     # so fucking bad
-    def __init__(self):
-        self.name = None
-        self.token_class = None
-        self.token_type = None
-    def capture_token(self,name):
+    def __init__(self,name):
         self.name = name
         if name == None:
             self.name = "EOF"
@@ -146,7 +143,6 @@ class Token:
             self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.FORWARD_SLASH
         elif name == "&":
-            self.name = "&amp;"
             self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.AMPERSAND
         elif name == "|":
@@ -155,11 +151,9 @@ class Token:
         elif name == "<":
             self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.LESS_THAN
-            self.name = "&lt;"
         elif name == ">":
             self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.GREATER_THAN
-            self.name = "&gt;"
         elif name == "=":
             self.token_class = Token_Class.OPERATOR
             self.token_type = Token_Type.EQUALS

@@ -110,12 +110,10 @@ def compile_next_token(lexer):
 def compile_class_var_dec(lexer):
     tree="<classVarDec>\n"
     tree+=compile_next_token(lexer) 
-    kind = lexer.cur_token.name
     if lexer.cur_token.token_type != Token_Type.FIELD and lexer.cur_token.token_type != Token_Type.STATIC:
         lexer.error_log+=f"syntax error: field or static expected, not {lexer.cur_token.name}\n" 
         lexer.error_log+=f"{lexer.cur_file}: line {lexer.cur_line}:{lexer.line_pos}\n"
     tree+=compile_type(lexer)
-    i_type = lexer.cur_token.name
     while True:
         tree+=compile_identifier(lexer)
         tree+=compile_next_token(lexer)

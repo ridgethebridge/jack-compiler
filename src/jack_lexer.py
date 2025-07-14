@@ -3,39 +3,6 @@ from token import *
 from symbol_table import *
 class Jack_Lexer:
 
-    '''
-    def new_identifier_info(self,i_type,kind,defined):
-        self.tree+="<identifer-block>\n"
-        self.lex_identifier()
-        table = None
-        if kind == FIELD or kind == FIELD:
-            table = self.g_table
-        else:
-            table = self.l_table
-        self.tree+=f"<type> {i_type} </type>\n"
-        self.tree+=f"<kind> {kind} </kind>\n"
-        self.tree+=f"<defined> {defined} </defined>\n"
-        self.tree+="</identifer-block>\n"
-        table.define(self.cur_token.name,i_type,kind)
-        '''
-    '''
-    def used_identifier_info(self):
-        self.tree+="<identifer-block>\n"
-        self.lex_identifier()
-        name = self.cur_token.name
-        table = None
-        if name in self.l_table:
-            table = self.l_table.table
-        elif name in self.g_table:
-            table = self.g_table.table
-        else:
-            table = {name: ("undefined","undefined",-1)}
-        self.tree+=f"<type> {table[name][0]} </type>\n"
-        self.tree+=f"<kind> {table[name][1]} </kind>\n"
-        self.tree+=f"<defined> {False} </defined>\n"
-        self.tree+="</identifer-block>\n"
-    '''
-
     def __init__(self, file_name):
         try:
             with open(file_name,"r") as file:
@@ -43,11 +10,10 @@ class Jack_Lexer:
         except:
             print(f"unable to open file {file_name}")
             exit()
-                
         self.cur_line = 1
         self.line_pos = 1
         self.cursor = 0
-        self.cur_token = Token()
+        self.cur_token = Token(None)
         self.error_log = ""
         self.cur_file = file_name
 
@@ -89,7 +55,7 @@ class Jack_Lexer:
         name = None
         #EOF condition
         if not self.has_next():
-            self.cur_token.capture_token(None)
+            self.cur_token = Token(None)
             return
         start = self.cursor
         self.cursor +=1
@@ -112,10 +78,9 @@ class Jack_Lexer:
             else:
                 self.error_log+=f"syntax error: \" is missing at end of string {self.code[start:self.cursor]}, reached EOF instead\n"
                 self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
-        self.cur_token.capture_token(self.code[start:self.cursor])
-        
+        self.cur_token = Token(self.code[start:self.cursor])
         s = token_class_to_str(self.cur_token.token_class)
-
+        return self.cur_token
         
     def peek_ahead(self,k):
         start = self.cursor
@@ -130,22 +95,30 @@ class Jack_Lexer:
         self.cur_line = saved_ln
         self.line_pos = saved_lp
         self.error_log = saved_error
+        return self.cur_token
         
     def lex_identifier(self):
-        self.lex_next_token()
+        t = self.lex_next_token()
         if self.cur_token.token_type != Token_Type.IDENTIFIER:
             self.error_log+=f"syntax error: identifier is expected not {self.cur_token.name}\n"
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+        return t
 
     def has_next(self):
         return len(self.code) - self.cursor > 0
 
-
+    #@fix
     def lex_expected_token(self,tt):
-        self.peek_ahead(1)
+        t = self.peek_ahead(1)
         if self.cur_token.token_type != tt:
             self.error_log+=f"syntax error:  expected {tt} not {self.cur_token.name}\n"
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
-            return 
-        self.lex_next_token()
+            return t
+        return self.lex_next_token()
+
+    def lex_type(self): 
+        t = self.lex_next_token()
+        if not(self.cur_token.token_type == Token_Type.INT or self.cur_token.token_type == Token_Type.CHAR or self.cur_token.token_type == Token_Type.BOOL or self.cur_token.token_type == Token_Type.IDENTIFIER):
+            self.error_log+=f"invalid type on line {self.cur_line}:{self.line_pos}\n"
+        return t
     

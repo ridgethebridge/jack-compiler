@@ -1,20 +1,11 @@
 
-#kinds for identifiers
-LOCAL = "local"
-ARG = "argument"
-STATIC = "static"
-CLASS = "class"
-SUB = "subroutine"
-FIELD = "field"
-UNDEFINED = None
 
 class Table:
     def __init__(self):
         self.table = {}
-        self.index = 0
-    def define(self,name,t_type,kind):
-        self.table[name] = (t_type,kind,self.index)
-        self.index+=1
+
+    def define(self,name,t_type,kind,index):
+        self.table[name] = (t_type,kind,index)
     def var_count(self,kind):
         count = 0
         for k, v in self.table:
