@@ -18,13 +18,15 @@ from symbol_table import *
 from token import Token_Class as tc
 from token import Token_Type as tt
 
-#kinds for identifiers
+#kinds for identifiers and segments
 LOCAL = "local"
-ARG = "argument"
+ARGUMENT = "argument"
 STATIC = "static"
 CLASS = "class"
 SUB = "subroutine"
 FIELD = "field"
+POINTER = "pointer"
+CONSTANT = "constant"
 UNDEFINED = None
 
 
@@ -139,50 +141,45 @@ class Code_Generator:
         if self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
             t_type=self.lexer.lex_type()
             t_name =self.lexer.lex_identifier()
-            self.l_table.define(t_name.name,t_type.name,"argument",self.kind_table["argument"])
-            self.kind_table["argument"]+=1
+            self.l_table.define(t_name.name,t_type.name,ARGUMENT,self.kind_table[ARGUMENT])
+            self.kind_table[ARGUMENT]+=1
             self.lexer.peek_ahead(1)
             while self.lexer.cur_token.token_type == tt.COMMA:
                 self.lexer.lex_expected_token(tt.COMMA) 
                 t_type=self.lexer.lex_type()
                 t_name =self.lexer.lex_identifier()
-                self.l_table.define(t_name.name,t_type.name,"argument",self.kind_table["argument"])
-                self.kind_table["argument"]+=1
+                self.l_table.define(t_name.name,t_type.name,ARGUMENT,self.kind_table[ARGUMENT])
+                self.kind_table[ARGUMENT]+=1
                 self.lexer.peek_ahead(1) 
 
     def compile_subroutine_body(self,func_name,kind_token):
         self.lexer.lex_expected_token(tt.LEFT_CURLY)
-        num_locals = 0 
         while True:
             self.lexer.peek_ahead(1)
             if self.lexer.cur_token.token_type == tt.VAR:
-                num_locals +=self.compile_var_dec()
+                self.compile_var_dec()
             else:
                 break
         #now time to write function label
-        self.write_function(func_name,num_locals)
+        self.write_function(func_name,self.kind_table[LOCAL])
         #checks for method and constructor
         if kind_token.token_type == tt.METHOD:
-            self.write_push("argument",0)
-            self.write_pop("pointer",0)
+            self.write_push(ARGUMENT,0)
+            self.write_pop(POINTER,0)
         elif kind_token.token_type == tt.CONSTRUCTOR:
-            self.write_push("constant",self.kind_table["field"])
+            self.write_push(CONSTANT,self.kind_table[FIELD])
             self.write_call("Memory.Alloc",1)
-            self.write_pop("pointer",0)
+            self.write_pop(POINTER,0)
         self.compile_multiple_statements()
         self.lexer.lex_expected_token(tt.RIGHT_CURLY) 
 
-    #@fix
-    #check for duplication of vars
     def compile_var_dec(self):
-        num_vars = 0
         self.lexer.lex_expected_token(tt.VAR)
         t_type = self.lexer.lex_type()
         while True:
-            num_vars+=1
             t_name = self.lexer.lex_identifier()
-            self.l_table.define(t_name.name,t_type.name,"local",self.kind_table["local"])
-            self.kind_table["local"]+=1
+            self.l_table.define(t_name.name,t_type.name,LOCAL,self.kind_table[LOCAL])
+            self.kind_table[LOCAL]+=1
             self.lexer.lex_next_token()
             if self.lexer.cur_token.token_type == tt.COMMA:
                 pass
@@ -191,7 +188,6 @@ class Code_Generator:
             else:
                 self.lexer.error_log+=f"syntax error: semicolon is expected to end variable declarations, not {self.lexer.cur_token.name}\n"
                 self.lexer.error_log+=f"{self.lexer.cur_file}: line {self.lexer.cur_line}:{self.lexer.line_pos}\n"
-        return num_vars
 
     def compile_class_var_dec(self):
         t = self.lexer.lex_next_token()
@@ -284,16 +280,26 @@ class Code_Generator:
     def compile_subroutine_call(self):
         num_args = 0
         first_name = self.lexer.lex_identifier()
-        var_type = self.token_to_identifier(first_name)
-        #to see if it is an object
-        if var_type != None:
-            self.write_push(var_type[KIND_INDEX],var_type[INDEX_INDEX])
-            num_args+=1
         last_name = None
         self.lexer.peek_ahead(1)
         if self.lexer.cur_token.token_type == tt.DOT:
             self.lexer.lex_expected_token(tt.DOT)
             last_name = self.lexer.lex_identifier()
+        #to see if it is an object
+        var_type = self.token_to_identifier(first_name)
+        call_written = None
+        if var_type != None:
+            self.write_push(var_type[KIND_INDEX],var_type[INDEX_INDEX])
+            num_args+=1
+            call_written = f"{var_type[{TYPE_INDEX}]}"
+        elif last_name == None:
+            self.write_push(ARGUMENT,0)
+            num_args+=1
+            class_name = self.lexer.cur_file.replace(".jack","")
+            call_written = f"{class_name}.{first_name.name}"
+        else:
+            class_name = self.lexer.cur_file.replace(".jack","")
+            call_written = f"{class_name}.{last_name.name}"
         self.lexer.lex_expected_token(tt.LEFT_PAREN)
         self.lexer.peek_ahead(1)
         while self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
@@ -302,16 +308,7 @@ class Code_Generator:
             self.lexer.lex_expected_token(tt.COMMA)
             self.lexer.peek_ahead(1)
         self.lexer.lex_expected_token(tt.RIGHT_PAREN)
-        if last_name != None:
-            var_type = self.token_to_identifier(first_name)
-            if var_type != None: # it is an object
-                self.write_call(f"{var_type[0]}",num_args)
-            else:
-                class_name = self.lexer.cur_file.replace(".jack","")
-                self.write_call(f"{class_name}.{last_name.name}",num_args)
-        else:
-            class_name = self.lexer.cur_file.replace(".jack","")
-            self.write_call(f"{class_name}.{first_name.name}",num_args)
+        self.write_call(call_written,num_args)
 
 
     #set of statment functions
