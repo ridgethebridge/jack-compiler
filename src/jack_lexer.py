@@ -96,29 +96,32 @@ class Jack_Lexer:
         return self.cur_token
         
     def lex_identifier(self):
-        t = self.lex_next_token()
+        t = self.peek_ahead(1)
         if self.cur_token.token_type != Token_Type.IDENTIFIER:
             self.report_error(f"syntax error: identifier is expected not {self.cur_token.name}\n")
-        return t
+            print(t.name)
+            return t
+        return self.lex_next_token()
 
     def has_next(self):
         return len(self.code) - self.cursor > 0
 
     #@fix
-    def lex_expected_token(self,tt):
+    def lex_expected_tokens(self,tts):
         t = self.peek_ahead(1)
-        if self.cur_token.token_type != tt:
-            self.report_error(f"syntax error:  expected {tt} not {self.cur_token.name}\n")
+        if not(t.token_type in tts):
+            self.report_error(f"syntax error:  expected {tts} not {self.cur_token.name}\n")
             return t
         return self.lex_next_token()
 
     def lex_type(self): 
-        t = self.lex_next_token()
+        t = self.peek_ahead(1)
         if not(self.cur_token.token_type == Token_Type.INT or self.cur_token.token_type == Token_Type.CHAR or self.cur_token.token_type == Token_Type.BOOL or self.cur_token.token_type == Token_Type.IDENTIFIER):
             self.report_error(f"invalid type on line {self.cur_line}:{self.line_pos}\n")
-        return t
+            return t
+        return self.lex_next_token()
+
     def report_error(self,error):
             self.error_log+=error
             self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
 
-    
