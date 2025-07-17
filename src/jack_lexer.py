@@ -67,8 +67,7 @@ class Jack_Lexer:
         elif self.code[start] == "\"":
             while self.has_next() and self.code[self.cursor] != "\"":
                 if self.code[self.cursor] == "\n":
-                    self.error_log+=f"syntax error: \" is missing at end of string {self.code[start:self.cursor]}, reached newline instead\n"
-                    self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+                    self.report_error(f"syntax error: \" is missing at end of string {self.code[start:self.cursor]}, reached newline instead\n")
                     break
                 self.cursor+=1
                 self.line_pos+=1
@@ -76,8 +75,7 @@ class Jack_Lexer:
                 self.cursor+=1
                 self.line_pos+=1
             else:
-                self.error_log+=f"syntax error: \" is missing at end of string {self.code[start:self.cursor]}, reached EOF instead\n"
-                self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+                self.report_error(f"syntax error: \" is missing at end of string {self.code[start:self.cursor]}, reached EOF instead\n")
         self.cur_token = Token(self.code[start:self.cursor])
         s = token_class_to_str(self.cur_token.token_class)
         return self.cur_token
@@ -100,8 +98,7 @@ class Jack_Lexer:
     def lex_identifier(self):
         t = self.lex_next_token()
         if self.cur_token.token_type != Token_Type.IDENTIFIER:
-            self.error_log+=f"syntax error: identifier is expected not {self.cur_token.name}\n"
-            self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+            self.report_error(f"syntax error: identifier is expected not {self.cur_token.name}\n")
         return t
 
     def has_next(self):
@@ -111,14 +108,17 @@ class Jack_Lexer:
     def lex_expected_token(self,tt):
         t = self.peek_ahead(1)
         if self.cur_token.token_type != tt:
-            self.error_log+=f"syntax error:  expected {tt} not {self.cur_token.name}\n"
-            self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+            self.report_error(f"syntax error:  expected {tt} not {self.cur_token.name}\n")
             return t
         return self.lex_next_token()
 
     def lex_type(self): 
         t = self.lex_next_token()
         if not(self.cur_token.token_type == Token_Type.INT or self.cur_token.token_type == Token_Type.CHAR or self.cur_token.token_type == Token_Type.BOOL or self.cur_token.token_type == Token_Type.IDENTIFIER):
-            self.error_log+=f"invalid type on line {self.cur_line}:{self.line_pos}\n"
+            self.report_error(f"invalid type on line {self.cur_line}:{self.line_pos}\n")
         return t
+    def report_error(self,error):
+            self.error_log+=error
+            self.error_log+=f"{self.cur_file}: line {self.cur_line}:{self.line_pos}\n"
+
     
