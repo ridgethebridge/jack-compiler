@@ -27,6 +27,9 @@ SUB = "subroutine"
 FIELD = "field"
 POINTER = "pointer"
 CONSTANT = "constant"
+TEMP = "temp"
+THIS="this"
+THAT="that"
 UNDEFINED = None
 
 
@@ -35,7 +38,7 @@ TYPE_INDEX = 0
 KIND_INDEX = 1
 INDEX_INDEX = 2
 
-operations = {"+":"add","-":"sub","~":"not",
+operations = {"+":"add","-":"sub","*":"call Math.multiply 2","/":"call Math.divide 2","~":"not",
               "=":"eq","|":"or","&":"and",">":"gt",
               "<":"lt"}
 
@@ -74,6 +77,14 @@ class Code_Generator:
 
     def write_function(self,name,num_locals):
         self.output+=f"function {self.lexer.cur_file.split(".")[0]}.{name} {num_locals}\n"
+
+    def write_string(self,string):
+        self.write_push(CONSTANT,len(string))
+        self.write_call("String.new",1)
+        for c in string:
+            self.write_push(CONSTANT,ord(c))
+            self.write_call("String.appendChar",2)
+
 
     def get_segment(self,kind):
         if kind == "field":
@@ -205,8 +216,8 @@ class Code_Generator:
            self.lexer.lex_next_token()
            self.write_push("constant",self.lexer.cur_token.name)
         elif self.lexer.cur_token.token_type == tt.STRING_CONSTANT: 
-           lex_next_token()
-           self.write_push("constant","0")
+           self.lexer.lex_next_token()
+           self.write_string(self.lexer.cur_token.name)
         elif self.lexer.cur_token.token_type == tt.TRUE: 
             lex_next_token()
             self.write_push("constant","-1")
@@ -230,12 +241,11 @@ class Code_Generator:
         elif self.lexer.cur_token.token_type == tt.IDENTIFIER:
             self.lexer.peek_ahead(2)
             if self.lexer.cur_token.token_type == tt.LEFT_BRACKET:
-                t = self.lexer.lex_identifier()
-                t_name = self.token_to_identifier(t)
+                t_name = self.use_identifier()
                 self.lexer.lex_expected_tokens([tt.LEFT_BRACKET])
                 self.compile_expression()
                 self.lexer.lex_expected_tokens([tt.RIGHT_BRACKET])
-                self.write_push(t_name[1],t_name[2])
+                self.write_push(t_name[KIND_INDEX],t_name[INDEX_INDEX])
                 self.write_arithmetic("+")
                 self.write_pop("pointer","1") #puts base address into that
                 self.write_push("that",0)
@@ -282,15 +292,13 @@ class Code_Generator:
             call_written = f"{class_name}.{first_name.name}"
         else:
             class_name = self.lexer.cur_file.replace(".jack","")
-            call_written = f"{class_name}.{last_name.name}"
+            call_written = f"{first_name.name}.{last_name.name}"
         self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
         self.lexer.peek_ahead(1)
         while self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
             num_args+=1
             self.compile_expression()
-            self.lexer.lex_expected_tokens([tt.COMMA])
-            self.lexer.peek_ahead(1)
-        self.lexer.lex_expected_tokens([tt.RIGHT_PAREN])
+            self.lexer.lex_expected_tokens((tt.COMMA,tt.RIGHT_PAREN))
         self.write_call(call_written,num_args)
 
 
@@ -310,8 +318,13 @@ class Code_Generator:
             self.lexer.lex_expected_tokens([tt.LEFT_BRACKET])
             self.compile_expression() 
             self.lexer.lex_expected_tokens([tt.RIGHT_BRACKET])
+            self.write_arithmetic("+")
         self.lexer.lex_expected_tokens([tt.EQUALS])
         self.compile_expression() 
+        self.write_pop(TEMP,0)
+        self.write_pop(POINTER,1)
+        self.write_push(TEMP,0)
+        self.write_pop(THAT,0)
         self.lexer.lex_expected_tokens([tt.SEMICOLON])
         self.write_pop(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
 
