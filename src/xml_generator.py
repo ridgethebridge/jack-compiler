@@ -192,7 +192,6 @@ def compile_var_dec(lexer):
     tree+="</varDec>\n"
     return tree
 
-#@error
 def compile_type(lexer): 
     tree = compile_next_token(lexer)
     if not(lexer.cur_token.token_type == Token_Type.INT or lexer.cur_token.token_type == Token_Type.CHAR or lexer.cur_token.token_type == Token_Type.BOOL or lexer.cur_token.token_type == Token_Type.IDENTIFIER):
@@ -214,18 +213,6 @@ def compile_multiple_statements(lexer):
 def compile_statement(lexer):
     tree = None
     lexer.peek_ahead(1)
-    '''
-    if lexer.cur_token.token_type == Token_Type.LET:
-        tree = compile_let_statement(lexer) 
-    elif lexer.cur_token.token_type == Token_Type.IF: 
-        compile_if_statement(lexer) 
-    elif lexer.cur_token.token_type == Token_Type.WHILE: 
-        compile_while_statement(lexer) 
-    elif lexer.cur_token.token_type == Token_Type.DO: 
-        compile_do_statement(lexer) 
-    elif lexer.cur_token.token_type == Token_Type.RETURN: 
-        compile_return_statement(lexer) 
-    '''
     if not(lexer.cur_token.token_type in statement_maps):
         tree = compile_next_token(lexer) #idk
         lexer.error_log+=f"syntax error: invalid statement, expecting do, let, if, while, or return keywords, not {lexer.cur_token.name}\n"
@@ -285,7 +272,7 @@ def compile_term(lexer):
     else:
         lexer.error_log+=f"syntax error: invalid term for expression, identifier, constant or expression expected, not {lexer.cur_token.name}\n"
         lexer.error_log+=f"{lexer.cur_file}: line {lexer.cur_line}:{lexer.line_pos}\n"
-        tree+=compile_next_token(lexer) # @unsure
+        tree+=compile_next_token(lexer) 
     tree+="</term>\n"
     return tree
 
@@ -318,7 +305,6 @@ def compile_expected_token(lexer,tt):
     if lexer.cur_token.token_type != tt:
         lexer.error_log+=f"syntax error:  expected {tt} not {lexer.cur_token.name}\n"
         lexer.error_log+=f"{lexer.cur_file}: line {lexer.cur_line}:{lexer.line_pos}\n"
-#        return 
     return compile_next_token(lexer)
 
 def compile_identifier(lexer):

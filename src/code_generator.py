@@ -7,8 +7,6 @@ this means that functions which don't exist and classes which don't exist will c
 TODO:
 7/13/2025
 add type checking for return method so correct type gets returned, also 0 should be reutrned for void functions
-add support for strings and other objects, mainly do constructors, sicne string is builtin use OS functions
-for the constructor i have to use the alloc syscall from jack OS, also for the operations the book recommends to use syscalls
 function calls need arity check, and type checking for parameters, also function identifiers should be realized prior to use so check for that
 --------------------------------------
 '''
@@ -95,11 +93,11 @@ class Code_Generator:
         var = self.use_identifier()
         self.write_push(var[KIND_INDEX],var[INDEX_INDEX])
 
-    #when using defined variables, or function calls, has a check to ensure definition returns var in table
+    #for assignments and maybe function calls
     def use_identifier(self):
         self.lexer.lex_identifier()
         t = self.lexer.cur_token
-        var = None
+        is_array = False
         if t.name in self.l_table:
             var = self.l_table.table[t.name]
         elif t.name in self.g_table:
@@ -109,7 +107,16 @@ class Code_Generator:
         else:
             print(f"undefined identifier {t.name} {self.lexer.cur_line}:{self.lexer.line_pos}")
             exit()
-        return var
+        self.lexer.peek_ahead(1)
+        if self.lexer.cur_token.token_type == tt.LEFT_BRACKET:
+            self.write_push(var[KIND_INDEX],var[INDEX_INDEX])
+            is_array = True
+            self.lexer.lex_expected_tokens([tt.LEFT_BRACKET])
+            self.compile_expression() 
+            self.lexer.lex_expected_tokens([tt.RIGHT_BRACKET])
+            self.write_arithmetic("+")
+            self.write_pop(POINTER,1)
+        return var, is_array
 
     def compile_class(self):
         self.lexer.lex_expected_tokens([tt.CLASS])
@@ -241,18 +248,12 @@ class Code_Generator:
         elif self.lexer.cur_token.token_type == tt.IDENTIFIER:
             self.lexer.peek_ahead(2)
             if self.lexer.cur_token.token_type == tt.LEFT_BRACKET:
-                t_name = self.use_identifier()
-                self.lexer.lex_expected_tokens([tt.LEFT_BRACKET])
-                self.compile_expression()
-                self.lexer.lex_expected_tokens([tt.RIGHT_BRACKET])
-                self.write_push(t_name[KIND_INDEX],t_name[INDEX_INDEX])
-                self.write_arithmetic("+")
-                self.write_pop("pointer","1") #puts base address into that
+                var,_ = self.use_identifier()
                 self.write_push("that",0)
             elif self.lexer.cur_token.token_type == tt.LEFT_PAREN or self.lexer.cur_token.token_type == tt.DOT:
                 self.compile_subroutine_call() 
-            else: #just for identifiers
-                var = self.use_identifier()
+            else: 
+                var,_ = self.use_identifier()
                 self.write_push(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
         else:
             self.lexer.report_error(f"syntax error: invalid term for expression, identifier, constant or expression expected, not {self.lexer.cur_token.name}\n")
@@ -276,7 +277,7 @@ class Code_Generator:
         last_name = None
         self.lexer.peek_ahead(1)
         if self.lexer.cur_token.token_type == tt.DOT:
-            self.lexer.lex_expected_tokens([tt.DOT])
+            self.lexer.lex_expected_tokens(tuple([tt.DOT]))
             last_name = self.lexer.lex_identifier()
         #to see if it is an object
         var_type = self.token_to_identifier(first_name)
@@ -301,7 +302,6 @@ class Code_Generator:
             self.lexer.lex_expected_tokens((tt.COMMA,tt.RIGHT_PAREN))
         self.write_call(call_written,num_args)
 
-
     #set of statment functions
     def compile_multiple_statements(self):
         while True:
@@ -312,21 +312,14 @@ class Code_Generator:
 
     #all statements are assumed to have been read already
     def compile_let_statement(self):
-        var = self.use_identifier()
-        self.lexer.peek_ahead(1)
-        if self.lexer.cur_token.token_type == tt.LEFT_BRACKET:
-            self.lexer.lex_expected_tokens([tt.LEFT_BRACKET])
-            self.compile_expression() 
-            self.lexer.lex_expected_tokens([tt.RIGHT_BRACKET])
-            self.write_arithmetic("+")
+        var,is_array = self.use_identifier()
         self.lexer.lex_expected_tokens([tt.EQUALS])
         self.compile_expression() 
-        self.write_pop(TEMP,0)
-        self.write_pop(POINTER,1)
-        self.write_push(TEMP,0)
-        self.write_pop(THAT,0)
         self.lexer.lex_expected_tokens([tt.SEMICOLON])
-        self.write_pop(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
+        if is_array:
+            self.write_pop(THAT,0)
+        else:
+            self.write_pop(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
 
     def compile_if_statement(self):
         self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
@@ -346,7 +339,6 @@ class Code_Generator:
             self.compile_multiple_statements()
             self.lexer.lex_expected_tokens([tt.RIGHT_CURLY])
 
-
     def compile_while_statement(self):
         self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
         self.compile_expression()
@@ -354,7 +346,7 @@ class Code_Generator:
         self.lexer.lex_expected_tokens([tt.LEFT_CURLY])
         self.write_ifgoto(f"L{self.label_num}")
         self.write_goto(f"L{self.label_num+1}")
-        self.write_label() # main body
+        self.write_label() 
         self.compile_multiple_statements()
         self.write_goto(f"L{self.label_num-1}")
         self.lexer.lex_expected_tokens([tt.RIGHT_CURLY])

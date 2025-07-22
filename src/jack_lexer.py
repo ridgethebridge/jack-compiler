@@ -110,6 +110,8 @@ class Jack_Lexer:
     def lex_expected_tokens(self,tts):
         t = self.peek_ahead(1)
         if not(t.token_type in tts):
+            print(t.token_type)
+            print(f"syntax error: line {self.cur_line}:{self.line_pos}")
             self.report_error(f"syntax error:  expected {tts} not {self.cur_token.name}\n")
             return t
         return self.lex_next_token()

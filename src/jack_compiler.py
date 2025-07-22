@@ -18,6 +18,6 @@ def main():
             if len(gen.lexer.error_log) > 0:
                 print(gen.lexer.error_log)
                 exit()
-        gen.dump_vm(f.replace("jack","vm"))
+            gen.dump_vm(f.replace("jack","vm"))
 main()
 
