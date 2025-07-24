@@ -23,6 +23,16 @@ def compile_do_statement(lexer):
     tree+="</doStatement>\n"
     return tree
 
+def get_xml_name(token):
+    if token.name == "<":
+        return "&lt;"
+    elif token.name == ">":
+        return "&gt;"
+    elif token.name == "&":
+        return "&amp;"
+    else:
+        return token.name
+
 def compile_while_statement(lexer):
     tree="<whileStatement>\n"
     tree+=compile_expected_token(lexer,Token_Type.WHILE)
@@ -104,7 +114,8 @@ def compile_class(lexer):
 def compile_next_token(lexer):
     lexer.lex_next_token()
     s = token_class_to_str(lexer.cur_token.token_class)
-    tree = f"<{s}> {lexer.cur_token.name} </{s}>\n"
+    name = get_xml_name(lexer.cur_token)
+    tree = f"<{s}> {name} </{s}>\n"
     return tree
 
 def compile_class_var_dec(lexer):
