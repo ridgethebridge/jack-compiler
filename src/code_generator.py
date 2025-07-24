@@ -45,7 +45,8 @@ class Code_Generator:
     def __init__(self,file):
          self.lexer = Jack_Lexer(file)
          self.output = ""
-         self.label_num = 0
+         self.if_label_num = 0
+         self.while_label_num=0
          self.g_table = Table()
          self.l_table = Table()
          self.c_table = Table()
@@ -60,9 +61,13 @@ class Code_Generator:
     def write_arithmetic(self,operation):
         self.output+=f"{operations[operation]}\n"
 
-    def write_label(self):
-        self.output+=f"label L{self.label_num}\n"
-        self.label_num+=1
+    def write_label(self,is_if):
+        if is_if:
+            self.output+=f"label I_L{self.if_label_num}\n"
+            self.if_label_num+=1
+        else:
+            self.output+=f"label W_L{self.while_label_num}\n"
+            self.while_label_num+=1
 
     def write_goto(self,label):
         self.output+=f"goto {label}\n"
@@ -91,7 +96,7 @@ class Code_Generator:
 
     def compile_identifier(self,name):
         var = self.use_identifier()
-        self.write_push(var[KIND_INDEX],var[INDEX_INDEX])
+        self.write_push(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
 
     #for assignments and maybe function calls
     def use_identifier(self):
@@ -109,7 +114,7 @@ class Code_Generator:
             exit()
         self.lexer.peek_ahead(1)
         if self.lexer.cur_token.token_type == tt.LEFT_BRACKET:
-            self.write_push(var[KIND_INDEX],var[INDEX_INDEX])
+            self.write_push(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
             is_array = True
             self.lexer.lex_expected_tokens([tt.LEFT_BRACKET])
             self.compile_expression() 
@@ -183,7 +188,7 @@ class Code_Generator:
             self.write_pop(POINTER,0)
         elif kind_token.token_type == tt.CONSTRUCTOR:
             self.write_push(CONSTANT,self.kind_table[FIELD])
-            self.write_call("Memory.Alloc",1)
+            self.write_call("Memory.alloc",1)
             self.write_pop(POINTER,0)
         self.compile_multiple_statements()
         self.lexer.lex_expected_tokens([tt.RIGHT_CURLY]) 
@@ -226,13 +231,13 @@ class Code_Generator:
            self.lexer.lex_next_token()
            self.write_string(self.lexer.cur_token.name)
         elif self.lexer.cur_token.token_type == tt.TRUE: 
-            lex_next_token()
-            self.write_push("constant","-1")
+            self.lexer.lex_next_token()
+            self.write_push("constant","1") #@fix
         elif self.lexer.cur_token.token_type == tt.FALSE: 
-            lex_next_token()
+            self.lexer.lex_next_token()
             self.write_push("constant","0")
         elif self.lexer.cur_token.token_type == tt.NULL: 
-            lex_next_token()
+            self.lexer.lex_next_token()
             self.write_push("constant","0")
         elif self.lexer.cur_token.token_type == tt.THIS: 
             self.lexer.lex_next_token()
@@ -283,9 +288,9 @@ class Code_Generator:
         var_type = self.token_to_identifier(first_name)
         call_written = None
         if var_type != None:
-            self.write_push(var_type[KIND_INDEX],var_type[INDEX_INDEX])
+            self.write_push(self.get_segment(var_type[KIND_INDEX]),var_type[INDEX_INDEX])
             num_args+=1
-            call_written = f"{var_type[{TYPE_INDEX}]}"
+            call_written = f"{var_type[TYPE_INDEX]}.{last_name.name}"
         elif last_name == None:
             self.write_push(ARGUMENT,0)
             num_args+=1
@@ -296,6 +301,10 @@ class Code_Generator:
             call_written = f"{first_name.name}.{last_name.name}"
         self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
         self.lexer.peek_ahead(1)
+        if self.lexer.cur_token.token_type == tt.RIGHT_PAREN:
+            self.lexer.lex_expected_tokens((tt.RIGHT_PAREN,))
+            self.write_call(call_written,num_args)
+            return
         while self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
             num_args+=1
             self.compile_expression()
@@ -322,35 +331,37 @@ class Code_Generator:
             self.write_pop(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
 
     def compile_if_statement(self):
-        self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
+        self.lexer.lex_expected_tokens((tt.LEFT_PAREN,))
         self.compile_expression()
-        self.lexer.lex_expected_tokens([tt.RIGHT_PAREN])
-        self.lexer.lex_expected_tokens([tt.LEFT_CURLY])
-        self.write_ifgoto(f"L{self.label_num}")
-        self.write_goto(f"L{self.label_num+1}")
-        self.write_label()
+        self.lexer.lex_expected_tokens((tt.RIGHT_PAREN,))
+        self.lexer.lex_expected_tokens((tt.LEFT_CURLY,))
+        self.lexer.peek_ahead(2)
+        self.write_ifgoto(f"I_L{self.if_label_num}")
+        self.write_goto(f"I_L{self.if_label_num+1}")
+        self.write_label(True)
         self.compile_multiple_statements()
-        self.lexer.lex_expected_tokens([tt.RIGHT_CURLY])
-        self.write_label()
+        self.lexer.lex_expected_tokens((tt.RIGHT_CURLY,))
+        self.write_label(True)
         self.lexer.peek_ahead(1)
         if self.lexer.cur_token.token_type == tt.ELSE:
-            self.lexer.lex_expected_tokens([tt.ELSE])
-            self.lexer.lex_expected_tokens([tt.LEFT_CURLY])
+            self.lexer.lex_expected_tokens((tt.ELSE,))
+            self.lexer.lex_expected_tokens((tt.LEFT_CURLY,))
             self.compile_multiple_statements()
-            self.lexer.lex_expected_tokens([tt.RIGHT_CURLY])
+            self.lexer.lex_expected_tokens((tt.RIGHT_CURLY,))
 
     def compile_while_statement(self):
         self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
+        self.write_label(False)#L0
         self.compile_expression()
         self.lexer.lex_expected_tokens([tt.RIGHT_PAREN])
         self.lexer.lex_expected_tokens([tt.LEFT_CURLY])
-        self.write_ifgoto(f"L{self.label_num}")
-        self.write_goto(f"L{self.label_num+1}")
-        self.write_label() 
+        self.write_ifgoto(f"W_L{self.while_label_num}") #L1
+        self.write_goto(f"W_L{self.while_label_num+1}")#L2
+        self.write_label(False)#L1
         self.compile_multiple_statements()
-        self.write_goto(f"L{self.label_num-1}")
+        self.write_goto(f"W_L{self.while_label_num-2}") #L0
         self.lexer.lex_expected_tokens([tt.RIGHT_CURLY])
-        self.write_label()
+        self.write_label(False)#L2
 
     def compile_do_statement(self):
         self.compile_subroutine_call()
