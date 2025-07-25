@@ -4,8 +4,8 @@ class Table:
     def __init__(self):
         self.table = {}
 
-    def define(self,name,t_type,kind,index):
-        self.table[name] = (t_type,kind,index)
+    def define(self,name,t_type,kind,index,arg_types=None):
+        self.table[name] = (t_type,kind,index,arg_types)
     def var_count(self,kind):
         count = 0
         for k, v in self.table:
@@ -18,6 +18,8 @@ class Table:
         return self.table[name][2]
     def type_of(self,name):
         return self.table[name][0]
+    def types_of_args(self,name):
+        return self.table[name][3]
     def start_routine(self):
         del(self)
         self = Table()

@@ -5,9 +5,11 @@ initially classes and functions will not be in a table
 this means that functions which don't exist and classes which don't exist will compile fine, fix soon
 --------------------------------------
 TODO:
-7/13/2025
-add type checking for return method so correct type gets returned, also 0 should be reutrned for void functions
-function calls need arity check, and type checking for parameters, also function identifiers should be realized prior to use so check for that
+* add type checking for return method so correct type gets returned, also 0 should be reutrned for void functions
+* function calls need arity check, and type checking for parameters, also function identifiers should be realized prior to use so check for that
+
+* the local and argument sections for the kind table may be unnecessary 
+* represent types as integers keeping a structure mapping the numbers to type names
 --------------------------------------
 '''
 
@@ -40,6 +42,7 @@ operations = {"+":"add","-":"sub","*":"call Math.multiply 2","/":"call Math.divi
               "=":"eq","|":"or","&":"and",">":"gt",
               "<":"lt"}
 
+f_table = Table()
 class Code_Generator:
 
     def __init__(self,file):
@@ -141,36 +144,42 @@ class Code_Generator:
 
     #subroutine functions
     def compile_subroutine_dec(self):
+        #info about function
         self.l_table.start_routine()#resets local table
         self.kind_table["local"] = 0
         self.kind_table["argument"] = 0 #resets count each func declaration
-        t_kind = self.lexer.lex_expected_tokens([tt.FUNCTION,tt.METHOD,tt.CONSTRUCTOR])
-        t_type = self.lexer.peek_ahead(1)
-        if t_type.token_type == tt.VOID:
+        f_kind = self.lexer.lex_expected_tokens((tt.FUNCTION,tt.METHOD,tt.CONSTRUCTOR))
+        f_type = self.lexer.peek_ahead(1)
+        if f_type.token_type == tt.VOID:
             self.lexer.lex_expected_tokens([tt.VOID])
+            f_type = "void"
         else:
             self.lexer.lex_type()
-        t_name =self.lexer.lex_identifier()
+            f_type = self.lexer.cur_token.name
+        self.lexer.lex_identifier()
+        f_name = self.lexer.cur_token.name
         self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
-        self.compile_parameter_list() 
+        type_list = self.compile_parameter_list() 
         self.lexer.lex_expected_tokens([tt.RIGHT_PAREN])
-        self.compile_subroutine_body(t_name.name,t_kind) 
+        f_table.define(f_name,f_kind.token_type,f_type,self.kind_table[ARGUMENT],type_list)
+        print(f_table.table[f_name])
+        self.compile_subroutine_body(f_name,f_kind) 
 
+    #returns tuple of types in order
     def compile_parameter_list(self):
         self.lexer.peek_ahead(1)
-        if self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
+        type_list = tuple()
+        while self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
             t_type=self.lexer.lex_type()
+            type_list = (*type_list,*(t_type.name,)) 
             t_name =self.lexer.lex_identifier()
             self.l_table.define(t_name.name,t_type.name,ARGUMENT,self.kind_table[ARGUMENT])
             self.kind_table[ARGUMENT]+=1
             self.lexer.peek_ahead(1)
-            while self.lexer.cur_token.token_type == tt.COMMA:
-                self.lexer.lex_expected_tokens([tt.COMMA]) 
-                t_type=self.lexer.lex_type()
-                t_name =self.lexer.lex_identifier()
-                self.l_table.define(t_name.name,t_type.name,ARGUMENT,self.kind_table[ARGUMENT])
-                self.kind_table[ARGUMENT]+=1
-                self.lexer.peek_ahead(1) 
+            if self.lexer.cur_token.token_type != tt.COMMA:
+                break
+            self.lexer.lex_expected_tokens((tt.COMMA,)) 
+        return type_list
 
     def compile_subroutine_body(self,func_name,kind_token):
         self.lexer.lex_expected_tokens([tt.LEFT_CURLY])
@@ -372,6 +381,8 @@ class Code_Generator:
         self.lexer.peek_ahead(1)
         if self.lexer.cur_token.token_type != tt.SEMICOLON:
             self.compile_expression()
+        else:
+            self.write_push(CONSTANT,0)
         self.lexer.lex_expected_tokens([tt.SEMICOLON])
         self.output+="return\n"
 
