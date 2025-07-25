@@ -52,7 +52,6 @@ class Code_Generator:
          self.while_label_num=0
          self.g_table = Table()
          self.l_table = Table()
-         self.c_table = Table()
          self.kind_table = {"field":0,"static":0,"local":0,"argument":0}
 
     def write_push(self,segment,index):
@@ -110,8 +109,6 @@ class Code_Generator:
             var = self.l_table.table[t.name]
         elif t.name in self.g_table:
             var = self.g_table.table[t.name]
-        elif t.name in self.c_table:
-            var = self.c_table.table[t.name]
         else:
             print(f"undefined identifier {t.name} {self.lexer.cur_line}:{self.lexer.line_pos}")
             exit()
@@ -123,13 +120,11 @@ class Code_Generator:
             self.compile_expression() 
             self.lexer.lex_expected_tokens([tt.RIGHT_BRACKET])
             self.write_arithmetic("+")
-            self.write_pop(POINTER,1)
         return var, is_array
 
     def compile_class(self):
         self.lexer.lex_expected_tokens([tt.CLASS])
         self.lexer.lex_identifier()
-        self.c_table.define(self.lexer.cur_token.name,CLASS,CLASS,0)
         self.lexer.lex_expected_tokens([tt.LEFT_CURLY])
         t = self.lexer.peek_ahead(1)
         while t.token_type == tt.STATIC or t.token_type == tt.FIELD:
@@ -162,16 +157,12 @@ class Code_Generator:
         type_list = self.compile_parameter_list() 
         self.lexer.lex_expected_tokens([tt.RIGHT_PAREN])
         f_table.define(f_name,f_kind.token_type,f_type,self.kind_table[ARGUMENT],type_list)
-        print(f_table.table[f_name])
         self.compile_subroutine_body(f_name,f_kind) 
 
-    #returns tuple of types in order
     def compile_parameter_list(self):
         self.lexer.peek_ahead(1)
-        type_list = tuple()
         while self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
             t_type=self.lexer.lex_type()
-            type_list = (*type_list,*(t_type.name,)) 
             t_name =self.lexer.lex_identifier()
             self.l_table.define(t_name.name,t_type.name,ARGUMENT,self.kind_table[ARGUMENT])
             self.kind_table[ARGUMENT]+=1
@@ -179,7 +170,6 @@ class Code_Generator:
             if self.lexer.cur_token.token_type != tt.COMMA:
                 break
             self.lexer.lex_expected_tokens((tt.COMMA,)) 
-        return type_list
 
     def compile_subroutine_body(self,func_name,kind_token):
         self.lexer.lex_expected_tokens([tt.LEFT_CURLY])
@@ -225,12 +215,6 @@ class Code_Generator:
                 break
 
     #set of expression functions
-    #@fix
-    #work on whats written into vm code
-    #fix string and this handling
-    #add support fo unary operators
-    #add support fo array indexing
-    #check to make sure identifiers exist in table
     def compile_term(self):
         self.lexer.peek_ahead(1)
         if self.lexer.cur_token.token_type == tt.INT_CONSTANT:
@@ -242,6 +226,7 @@ class Code_Generator:
         elif self.lexer.cur_token.token_type == tt.TRUE: 
             self.lexer.lex_next_token()
             self.write_push("constant","1") #@fix
+            self.output+="neg\n" #cheese
         elif self.lexer.cur_token.token_type == tt.FALSE: 
             self.lexer.lex_next_token()
             self.write_push("constant","0")
@@ -255,14 +240,19 @@ class Code_Generator:
             self.lexer.lex_expected_tokens([tt.LEFT_PAREN])
             self.compile_expression()
             self.lexer.lex_expected_tokens([tt.RIGHT_PAREN])
-        elif self.lexer.cur_token.token_type == tt.MINUS or self.lexer.cur_token.token_type == tt.TILDE:
+        elif self.lexer.cur_token.token_type == tt.MINUS:
             t = self.lexer.lex_next_token() # maybe make a function for it?
+            self.compile_term()
+            self.output+="neg\n" #cheese
+        elif self.lexer.cur_token.token_type == tt.TILDE:
+            t = self.lexer.lex_next_token()
             self.compile_term()
             self.write_arithmetic(t.name)
         elif self.lexer.cur_token.token_type == tt.IDENTIFIER:
             self.lexer.peek_ahead(2)
             if self.lexer.cur_token.token_type == tt.LEFT_BRACKET:
                 var,_ = self.use_identifier()
+                self.write_pop(POINTER,1)
                 self.write_push("that",0)
             elif self.lexer.cur_token.token_type == tt.LEFT_PAREN or self.lexer.cur_token.token_type == tt.DOT:
                 self.compile_subroutine_call() 
@@ -283,8 +273,7 @@ class Code_Generator:
                 self.write_arithmetic(t.name)
             else:
                 break
-    #TODO translate function calls, ensure types and number of parameters matches definition
-    # and also make sure function exists
+    #@fix this method is poorly written
     def compile_subroutine_call(self):
         num_args = 0
         first_name = self.lexer.lex_identifier()
@@ -297,11 +286,12 @@ class Code_Generator:
         var_type = self.token_to_identifier(first_name)
         call_written = None
         if var_type != None:
+            self.write_push(POINTER,0)
             self.write_push(self.get_segment(var_type[KIND_INDEX]),var_type[INDEX_INDEX])
             num_args+=1
             call_written = f"{var_type[TYPE_INDEX]}.{last_name.name}"
         elif last_name == None:
-            self.write_push(ARGUMENT,0)
+            self.write_push(POINTER,0)
             num_args+=1
             class_name = self.lexer.cur_file.replace(".jack","")
             call_written = f"{class_name}.{first_name.name}"
@@ -313,12 +303,20 @@ class Code_Generator:
         if self.lexer.cur_token.token_type == tt.RIGHT_PAREN:
             self.lexer.lex_expected_tokens((tt.RIGHT_PAREN,))
             self.write_call(call_written,num_args)
+            if var_type != None:
+                self.write_pop(TEMP,1)
+                self.write_pop(POINTER,0)
+                self.write_push(TEMP,1)
             return
         while self.lexer.cur_token.token_type != tt.RIGHT_PAREN:
             num_args+=1
             self.compile_expression()
             self.lexer.lex_expected_tokens((tt.COMMA,tt.RIGHT_PAREN))
         self.write_call(call_written,num_args)
+        if var_type != None:
+            self.write_pop(TEMP,1)
+            self.write_pop(POINTER,0)
+            self.write_push(TEMP,1)
 
     #set of statment functions
     def compile_multiple_statements(self):
@@ -335,6 +333,9 @@ class Code_Generator:
         self.compile_expression() 
         self.lexer.lex_expected_tokens([tt.SEMICOLON])
         if is_array:
+            self.write_pop(TEMP,0)
+            self.write_pop(POINTER,1)
+            self.write_push(TEMP,0)
             self.write_pop(THAT,0)
         else:
             self.write_pop(self.get_segment(var[KIND_INDEX]),var[INDEX_INDEX])
@@ -374,6 +375,7 @@ class Code_Generator:
 
     def compile_do_statement(self):
         self.compile_subroutine_call()
+        self.write_pop(TEMP,2)
         self.lexer.lex_expected_tokens([tt.SEMICOLON])
 
     
