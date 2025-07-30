@@ -12,7 +12,7 @@ def main():
     else:
         file = [file]
     for f in file:
-        if ".jack" in f:
+        if f.endswith(".jack"):
             gen = Code_Generator(f)
             gen.compile_class()
             if len(gen.lexer.error_log) > 0:

@@ -285,13 +285,12 @@ class Code_Generator:
         #to see if it is an object
         var_type = self.token_to_identifier(first_name)
         call_written = None
+        self.write_push(POINTER,0)
         if var_type != None:
-            self.write_push(POINTER,0)
             self.write_push(self.get_segment(var_type[KIND_INDEX]),var_type[INDEX_INDEX])
             num_args+=1
             call_written = f"{var_type[TYPE_INDEX]}.{last_name.name}"
         elif last_name == None:
-            self.write_push(POINTER,0)
             num_args+=1
             class_name = self.lexer.cur_file.replace(".jack","")
             call_written = f"{class_name}.{first_name.name}"
@@ -313,10 +312,10 @@ class Code_Generator:
             self.compile_expression()
             self.lexer.lex_expected_tokens((tt.COMMA,tt.RIGHT_PAREN))
         self.write_call(call_written,num_args)
-        if var_type != None:
-            self.write_pop(TEMP,1)
-            self.write_pop(POINTER,0)
-            self.write_push(TEMP,1)
+        # restores this pointer
+        self.write_pop(TEMP,1)
+        self.write_pop(POINTER,0)
+        self.write_push(TEMP,1)
 
     #set of statment functions
     def compile_multiple_statements(self):
@@ -375,7 +374,7 @@ class Code_Generator:
 
     def compile_do_statement(self):
         self.compile_subroutine_call()
-        self.write_pop(TEMP,2)
+        self.write_pop(TEMP,2) #discards return value
         self.lexer.lex_expected_tokens([tt.SEMICOLON])
 
     
